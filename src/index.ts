@@ -50,12 +50,15 @@ type Market = {
 type Player = { fid: number; correct: number; total: number; streak: number; points: number };
 
 async function getOrSeedMarkets(db: D1Database): Promise<Market[]> {
-  let markets = (await db.prepare("SELECT * FROM markets WHERE resolved IS NULL ORDER BY resolves_at ASC LIMIT 3").all<Market>()).results || [];
+  let markets = (await db.prepare("SELECT * FROM markets WHERE resolved IS NULL ORDER BY resolves_at ASC LIMIT 10").all<Market>()).results || [];
   if (markets.length === 0) {
     const seeds = [
-      { q: "Will BTC close above $150K this week?", a: "Yes", b: "No", hours: 168 },
-      { q: "Will ETH flip SOL in daily volume this month?", a: "ETH flips", b: "SOL holds", hours: 720 },
-      { q: "Will a new L2 launch in the next 7 days?", a: "Yes", b: "No", hours: 168 },
+      { q: "Will BTC reclaim $100K by June 30?", a: "Yes", b: "No", hours: 1872 },
+      { q: "Will Fear & Greed exit Extreme Fear before May 1?", a: "Yes, exits", b: "No, stays", hours: 432 },
+      { q: "Will ETH be above $3K when Glamsterdam activates?", a: "Above $3K", b: "Below $3K", hours: 2160 },
+      { q: "Will BTC dominance exceed 60% by end of April?", a: "Over 60%", b: "Under 60%", hours: 408 },
+      { q: "Will SOL reclaim $150 by August 31?", a: "Yes", b: "No", hours: 3360 },
+      { q: "Will Trump announce a China trade deal by May 15?", a: "Deal", b: "No deal", hours: 768 },
     ];
     const now = Date.now();
     for (const s of seeds) {
@@ -63,7 +66,7 @@ async function getOrSeedMarkets(db: D1Database): Promise<Market[]> {
       await db.prepare("INSERT INTO markets (id, question, option_a, option_b, created_at, resolves_at) VALUES (?, ?, ?, ?, ?, ?)")
         .bind(id, s.q, s.a, s.b, now, now + s.hours * 3600000).run();
     }
-    markets = (await db.prepare("SELECT * FROM markets WHERE resolved IS NULL ORDER BY resolves_at ASC LIMIT 3").all<Market>()).results || [];
+    markets = (await db.prepare("SELECT * FROM markets WHERE resolved IS NULL ORDER BY resolves_at ASC LIMIT 10").all<Market>()).results || [];
   }
   return markets;
 }
@@ -86,92 +89,46 @@ async function getVote(db: D1Database, marketId: string, fid: number): Promise<s
 
 // --- Snap Pages ---
 
-function feedPage(markets: Market[], player: Player, leaderboard: Player[], votes: Record<string, string | null>) {
-  const marketElements: Record<string, object> = {};
-  const marketIds: string[] = [];
-
-  for (let i = 0; i < Math.min(markets.length, 3); i++) {
-    const m = markets[i];
-    const total = m.votes_a + m.votes_b;
-    const pctA = total > 0 ? Math.round((m.votes_a / total) * 100) : 50;
-    const pctB = 100 - pctA;
-    const myVote = votes[m.id];
-    const hoursLeft = Math.max(0, Math.round((m.resolves_at - Date.now()) / 3600000));
-
-    const mId = `m-${i}`;
-    const chartId = `chart-${i}`;
-    const actionsId = `act-${i}`;
-    const btnAId = `ba-${i}`;
-    const btnBId = `bb-${i}`;
-    const timeId = `t-${i}`;
-    marketIds.push(mId);
-
-    // Flat: question text, chart, actions — no wrapper stack
-    const qId = `q-${i}`;
-    marketElements[qId] = {
-      type: "text",
-      props: { content: `${m.question}`, size: "sm" as const, weight: "bold" as const },
-    };
-    marketElements[mId] = {
-      type: "stack",
-      props: { gap: "sm" },
-      children: [qId, chartId, ...(myVote ? [timeId] : [actionsId])],
-    };
-
-    marketElements[chartId] = {
-      type: "bar_chart",
-      props: {
-        bars: [
-          { label: `${m.option_a} ${pctA}%`, value: m.votes_a || 1, color: "blue" as const },
-          { label: `${m.option_b} ${pctB}%`, value: m.votes_b || 1, color: "amber" as const },
-        ],
-        max: Math.max(m.votes_a, m.votes_b, 1),
-      },
-    };
-
-    if (!myVote) {
-      marketElements[actionsId] = {
-        type: "stack",
-        props: { direction: "horizontal" as const, gap: "sm" },
-        children: [btnAId, btnBId],
-      };
-      // Bet buttons open the Mini App with market + choice params
-      marketElements[btnAId] = {
-        type: "button",
-        props: { label: `${m.option_a} (${BET_AMOUNT} ETH)`, variant: "primary" as const, icon: "coins" as const },
-        on: { press: { action: "open_mini_app", params: { target: `${BASE}/app?m=${m.id}&c=a` } } },
-      };
-      marketElements[btnBId] = {
-        type: "button",
-        props: { label: `${m.option_b} (${BET_AMOUNT} ETH)`, variant: "secondary" as const, icon: "coins" as const },
-        on: { press: { action: "open_mini_app", params: { target: `${BASE}/app?m=${m.id}&c=b` } } },
-      };
-    }
-
-    marketElements[timeId] = {
-      type: "text",
-      props: {
-        content: myVote
-          ? `Bet placed: ${myVote === "a" ? m.option_a : m.option_b} · ${hoursLeft}h left`
-          : `${m.question} · ${hoursLeft}h · ${total} bets`,
-        size: "sm" as const,
-      },
+function feedPage(markets: Market[], _player: Player, _leaderboard: Player[], votes: Record<string, string | null>) {
+  const m = markets[0];
+  if (!m) {
+    return {
+      version: "2.0" as const, theme: { accent: "amber" as const },
+      ui: { root: "p", elements: {
+        p: { type: "stack", props: { gap: "md" }, children: ["b", "t"] },
+        b: { type: "image", props: { url: `${IMG}/predict-banner.png`, aspect: "16:9" as const, alt: "Predict" } },
+        t: { type: "text", props: { content: "No active markets. Check back soon.", size: "sm" as const } },
+      }},
     };
   }
 
-  const lbItems: Record<string, object> = {};
-  const lbIds: string[] = [];
-  for (let i = 0; i < Math.min(leaderboard.length, 3); i++) {
-    const p = leaderboard[i];
-    const id = `lb-${i}`;
-    lbIds.push(id);
-    lbItems[id] = {
-      type: "item",
-      props: {
-        title: `#${i + 1} — FID ${p.fid}`,
-        description: `${p.points}pts · ${p.correct}/${p.total}${p.streak >= 3 ? " · " + p.streak + " streak" : ""}`,
-      },
+  const total = m.votes_a + m.votes_b;
+  const pctA = total > 0 ? Math.round((m.votes_a / total) * 100) : 50;
+  const pctB = 100 - pctA;
+  const myVote = votes[m.id];
+  const hoursLeft = Math.max(0, Math.round((m.resolves_at - Date.now()) / 3600000));
+  const daysLeft = Math.floor(hoursLeft / 24);
+  const timeLabel = daysLeft > 0 ? `${daysLeft}d left` : `${hoursLeft}h left`;
+
+  const betEls: Record<string, object> = {};
+  const betIds: string[] = [];
+
+  if (!myVote) {
+    betEls["bets"] = {
+      type: "stack", props: { direction: "horizontal" as const, gap: "sm" },
+      children: ["btn-a", "btn-b"],
     };
+    betEls["btn-a"] = {
+      type: "button",
+      props: { label: `${m.option_a} (${BET_AMOUNT} ETH)`, variant: "primary" as const, icon: "coins" as const },
+      on: { press: { action: "open_mini_app", params: { target: `${BASE}/app?m=${m.id}&c=a` } } },
+    };
+    betEls["btn-b"] = {
+      type: "button",
+      props: { label: `${m.option_b} (${BET_AMOUNT} ETH)`, variant: "secondary" as const, icon: "coins" as const },
+      on: { press: { action: "open_mini_app", params: { target: `${BASE}/app?m=${m.id}&c=b` } } },
+    };
+    betIds.push("bets");
   }
 
   return {
@@ -183,21 +140,43 @@ function feedPage(markets: Market[], player: Player, leaderboard: Player[], vote
         page: {
           type: "stack",
           props: { gap: "sm" },
-          children: ["banner", "stats", ...marketIds, "share"],
+          children: ["banner", "q", "chart", "info", ...betIds, "nav"],
         },
         banner: { type: "image", props: { url: `${IMG}/predict-banner.png`, aspect: "16:9" as const, alt: "Predict" } },
-        stats: {
-          type: "stack",
-          props: { direction: "horizontal" as const, gap: "sm", justify: "between" as const },
-          children: ["record", "pts"],
+        q: { type: "text", props: { content: m.question, weight: "bold" as const } },
+        chart: {
+          type: "bar_chart",
+          props: {
+            bars: [
+              { label: `${m.option_a} ${pctA}%`, value: m.votes_a || 1, color: "blue" as const },
+              { label: `${m.option_b} ${pctB}%`, value: m.votes_b || 1, color: "amber" as const },
+            ],
+            max: Math.max(m.votes_a, m.votes_b, 1),
+          },
         },
-        record: { type: "text", props: { content: `${player.correct}/${player.total} correct${player.streak >= 3 ? " · " + player.streak + " streak" : ""}`, size: "sm" as const } },
-        pts: { type: "badge", props: { label: `${player.points} pts`, color: "amber" as const } },
-        ...marketElements,
-        ...lbItems,
+        info: {
+          type: "text",
+          props: {
+            content: myVote
+              ? `Your bet: ${myVote === "a" ? m.option_a : m.option_b} · ${total} bets · ${timeLabel}`
+              : `${total} bets · ${timeLabel} · ${BET_AMOUNT} ETH per bet`,
+            size: "sm" as const,
+          },
+        },
+        ...betEls,
+        nav: {
+          type: "stack",
+          props: { direction: "horizontal" as const, gap: "sm" },
+          children: ["explore", "share"],
+        },
+        explore: {
+          type: "button",
+          props: { label: `All Markets (${markets.length})`, variant: "secondary" as const, icon: "trending-up" as const },
+          on: { press: { action: "open_mini_app", params: { target: `${BASE}/app` } } },
+        },
         share: {
           type: "button",
-          props: { label: "Challenge Friends", variant: "secondary" as const, icon: "share" as const },
+          props: { label: "Share", variant: "secondary" as const, icon: "share" as const },
           on: { press: { action: "compose_cast", params: { text: `Make your predictions. ${BASE}`, embeds: [BASE] } } },
         },
       },
