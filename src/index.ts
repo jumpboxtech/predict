@@ -218,6 +218,7 @@ function miniAppHtml(marketId: string, choice: string, market: Market | null) {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="fc:frame" content='{"version":"1","name":"Predict","iconUrl":"${IMG}/predict-banner.png","homeUrl":"${BASE}/app","splashImageUrl":"${IMG}/predict-banner.png","splashBackgroundColor":"#0a0a14"}'>
   <title>Predict — Place Bet</title>
+  <script type="importmap">{"imports":{"@farcaster/miniapp-sdk":"https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@0.3.0/dist/index.js"}}<\/script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #0a0a14; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
@@ -248,7 +249,9 @@ function miniAppHtml(marketId: string, choice: string, market: Market | null) {
     <p class="status" id="status"></p>
   </div>
 
-  <script>
+  <script type="module">
+    import { sdk } from "@farcaster/miniapp-sdk";
+
     const MARKET_ID = "${marketId}";
     const CHOICE = "${choice}";
     const TREASURY = "${TREASURY}";
@@ -259,13 +262,13 @@ function miniAppHtml(marketId: string, choice: string, market: Market | null) {
     let provider = null;
     let account = null;
 
-    async function getProvider() {
-      // Farcaster Mini App SDK injects window.ethereum
-      if (window.ethereum) return window.ethereum;
-      // Fallback: check for injected provider
-      if (window.parent && window.parent.ethereum) return window.parent.ethereum;
-      return null;
+    try {
+      await sdk.actions.ready();
+    } catch(e) {
+      console.log("SDK ready:", e);
     }
+
+    window.placeBet = placeBet;
 
     async function placeBet() {
       const btn = document.getElementById("bet-btn");
@@ -276,12 +279,11 @@ function miniAppHtml(marketId: string, choice: string, market: Market | null) {
         status.textContent = "Connecting wallet...";
         status.className = "status";
 
-        provider = await getProvider();
-        if (!provider) {
-          // Try Farcaster SDK
-          if (window.farcaster && window.farcaster.ethereum) {
-            provider = window.farcaster.ethereum;
-          }
+        // Farcaster SDK provides the ethereum provider
+        try {
+          provider = await sdk.wallet.ethProvider;
+        } catch(e) {
+          provider = window.ethereum;
         }
         if (!provider) throw new Error("No wallet found. Open this in Farcaster.");
 
