@@ -106,10 +106,16 @@ function feedPage(markets: Market[], player: Player, leaderboard: Player[], vote
     const timeId = `t-${i}`;
     marketIds.push(mId);
 
+    // Flat: question text, chart, actions — no wrapper stack
+    const qId = `q-${i}`;
+    marketElements[qId] = {
+      type: "text",
+      props: { content: `${m.question}`, size: "sm" as const, weight: "bold" as const },
+    };
     marketElements[mId] = {
       type: "stack",
       props: { gap: "sm" },
-      children: [chartId, ...(myVote ? [timeId] : [actionsId, timeId])],
+      children: [qId, chartId, ...(myVote ? [timeId] : [actionsId])],
     };
 
     marketElements[chartId] = {
@@ -177,7 +183,7 @@ function feedPage(markets: Market[], player: Player, leaderboard: Player[], vote
         page: {
           type: "stack",
           props: { gap: "sm" },
-          children: ["banner", "stats", "sep", ...marketIds, ...(lbIds.length ? ["lbsep", "lb"] : []), "share"],
+          children: ["banner", "stats", ...marketIds, "share"],
         },
         banner: { type: "image", props: { url: `${IMG}/predict-banner.png`, aspect: "16:9" as const, alt: "Predict" } },
         stats: {
@@ -187,9 +193,7 @@ function feedPage(markets: Market[], player: Player, leaderboard: Player[], vote
         },
         record: { type: "text", props: { content: `${player.correct}/${player.total} correct${player.streak >= 3 ? " · " + player.streak + " streak" : ""}`, size: "sm" as const } },
         pts: { type: "badge", props: { label: `${player.points} pts`, color: "amber" as const } },
-        sep: { type: "separator", props: {} },
         ...marketElements,
-        ...(lbIds.length ? { lbsep: { type: "separator", props: {} }, lb: { type: "item_group", props: { separator: true }, children: lbIds } } : {}),
         ...lbItems,
         share: {
           type: "button",
