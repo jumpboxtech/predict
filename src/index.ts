@@ -209,33 +209,31 @@ function feedPage(markets: Market[], player: Player, leaderboard: Player[], vote
 
 function miniAppHtml(marketId: string, choice: string, market: Market | null) {
   const choiceLabel = market ? (choice === "a" ? market.option_a : market.option_b) : choice;
-  const question = market?.question ?? "Loading...";
+  const question = market?.question ?? "Select a market from the snap";
 
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="fc:frame" content='{"version":"1","name":"Predict","iconUrl":"${IMG}/predict-banner.png","homeUrl":"${BASE}/app","splashImageUrl":"${IMG}/predict-banner.png","splashBackgroundColor":"#0a0a14"}'>
-  <title>Predict — Place Bet</title>
-  <script type="importmap">{"imports":{"@farcaster/miniapp-sdk":"https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@0.3.0/dist/index.js"}}<\/script>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <meta name="fc:miniapp" content='${JSON.stringify({version:"1",imageUrl:IMG+"/predict-banner.png",button:{title:"Predict",action:{type:"launch_miniapp",name:"Predict",url:BASE+"/app",splashImageUrl:IMG+"/predict-banner.png",splashBackgroundColor:"#0a0a14"}}})}'>
+  <title>Predict</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0a0a14; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-    .card { max-width: 400px; width: 100%; padding: 32px; }
-    h1 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
-    .question { color: #8b9ab8; font-size: 14px; margin-bottom: 24px; }
-    .choice { display: inline-block; background: #1e3050; color: #f59e0b; padding: 4px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; margin-bottom: 24px; }
-    .amount { font-size: 32px; font-weight: 700; font-family: 'SF Mono', monospace; margin-bottom: 4px; }
-    .split { color: #5e7190; font-size: 12px; margin-bottom: 32px; }
-    button { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
-    .btn-primary { background: #f59e0b; color: #0a0a14; }
-    .btn-primary:hover { background: #fbbf24; }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .status { text-align: center; color: #8b9ab8; font-size: 13px; margin-top: 16px; min-height: 20px; }
-    .status.error { color: #ef4444; }
-    .status.success { color: #22c55e; }
-    .back { display: block; text-align: center; color: #5e7190; font-size: 13px; margin-top: 16px; text-decoration: none; }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#0a0a14;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}
+    .card{max-width:400px;width:100%;padding:32px}
+    h1{font-size:20px;font-weight:700;margin-bottom:8px}
+    .question{color:#8b9ab8;font-size:14px;margin-bottom:24px}
+    .choice{display:inline-block;background:#1e3050;color:#f59e0b;padding:4px 12px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:24px}
+    .amount{font-size:32px;font-weight:700;font-family:'SF Mono',monospace;margin-bottom:4px}
+    .split{color:#5e7190;font-size:12px;margin-bottom:32px}
+    button{width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s}
+    .btn-primary{background:#f59e0b;color:#0a0a14}
+    .btn-primary:hover{background:#fbbf24}
+    .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+    .status{text-align:center;color:#8b9ab8;font-size:13px;margin-top:16px;min-height:20px}
+    .status.error{color:#ef4444}
+    .status.success{color:#22c55e}
   </style>
 </head>
 <body>
@@ -244,13 +242,15 @@ function miniAppHtml(marketId: string, choice: string, market: Market | null) {
     <p class="question">${question}</p>
     <div class="choice">${choiceLabel}</div>
     <p class="amount">${BET_AMOUNT} ETH</p>
-    <p class="split">90% to treasury · 10% protocol fee · Base network</p>
-    <button class="btn-primary" id="bet-btn" onclick="placeBet()">Connect & Bet</button>
+    <p class="split">90% to treasury · 10% protocol fee · Base</p>
+    <button class="btn-primary" id="bet-btn">Connect & Bet</button>
     <p class="status" id="status"></p>
   </div>
-
   <script type="module">
-    import { sdk } from "@farcaster/miniapp-sdk";
+    import { sdk } from "https://esm.sh/@farcaster/miniapp-sdk@0.3.0";
+
+    // Signal to Farcaster client that the app is ready
+    try { await sdk.actions.ready(); } catch(e) { console.log("ready error:", e); }
 
     const MARKET_ID = "${marketId}";
     const CHOICE = "${choice}";
@@ -259,18 +259,7 @@ function miniAppHtml(marketId: string, choice: string, market: Market | null) {
     const BASE_CHAIN = ${BASE_CHAIN_ID};
     const API = "${BASE}";
 
-    let provider = null;
-    let account = null;
-
-    try {
-      await sdk.actions.ready();
-    } catch(e) {
-      console.log("SDK ready:", e);
-    }
-
-    window.placeBet = placeBet;
-
-    async function placeBet() {
+    document.getElementById("bet-btn").addEventListener("click", async () => {
       const btn = document.getElementById("bet-btn");
       const status = document.getElementById("status");
       btn.disabled = true;
@@ -279,77 +268,50 @@ function miniAppHtml(marketId: string, choice: string, market: Market | null) {
         status.textContent = "Connecting wallet...";
         status.className = "status";
 
-        // Farcaster SDK provides the ethereum provider
-        try {
-          provider = await sdk.wallet.ethProvider;
-        } catch(e) {
-          provider = window.ethereum;
-        }
-        if (!provider) throw new Error("No wallet found. Open this in Farcaster.");
-
+        const provider = sdk.wallet.getEthereumProvider();
         const accounts = await provider.request({ method: "eth_requestAccounts" });
-        account = accounts[0];
+        const account = accounts[0];
         if (!account) throw new Error("No account connected");
 
-        // Switch to Base
         try {
           await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x" + BASE_CHAIN.toString(16) }] });
-        } catch (e) {
-          if (e.code === 4902) {
-            await provider.request({
-              method: "wallet_addEthereumChain",
-              params: [{ chainId: "0x" + BASE_CHAIN.toString(16), chainName: "Base", rpcUrls: ["https://mainnet.base.org"], nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 } }]
-            });
-          }
-        }
+        } catch(e) {}
 
-        status.textContent = "Sending " + ${JSON.stringify(BET_AMOUNT)} + " ETH...";
+        status.textContent = "Sending ${BET_AMOUNT} ETH...";
 
         const txHash = await provider.request({
           method: "eth_sendTransaction",
-          params: [{
-            from: account,
-            to: TREASURY,
-            value: "0x" + BigInt(BET_WEI).toString(16),
-            chainId: "0x" + BASE_CHAIN.toString(16),
-          }],
+          params: [{ from: account, to: TREASURY, value: "0x" + BigInt(BET_WEI).toString(16) }],
         });
 
-        status.textContent = "Confirming transaction...";
-
-        // Wait for confirmation
-        let confirmed = false;
+        status.textContent = "Confirming...";
         for (let i = 0; i < 30; i++) {
           await new Promise(r => setTimeout(r, 2000));
           const receipt = await provider.request({ method: "eth_getTransactionReceipt", params: [txHash] });
-          if (receipt && receipt.status === "0x1") { confirmed = true; break; }
+          if (receipt && receipt.status === "0x1") break;
           if (receipt && receipt.status === "0x0") throw new Error("Transaction reverted");
         }
-        if (!confirmed) throw new Error("Transaction timed out");
 
         status.textContent = "Recording bet...";
-
-        // Record the verified bet
         const res = await fetch(API + "/api/bet", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ marketId: MARKET_ID, choice: CHOICE, txHash, from: account }),
         });
-
         if (!res.ok) throw new Error("Failed to record bet");
 
-        status.textContent = "Bet placed! Close this to return to the feed.";
+        status.textContent = "Bet placed! Close this to return.";
         status.className = "status success";
         btn.textContent = "Bet Confirmed";
-
-      } catch (e) {
+        try { sdk.actions.close(); } catch(e) {}
+      } catch(e) {
         status.textContent = e.message || "Something went wrong";
         status.className = "status error";
         btn.disabled = false;
         btn.textContent = "Try Again";
       }
-    }
-  </script>
+    });
+  <\/script>
 </body>
 </html>`;
 }
@@ -362,7 +324,7 @@ const manifest = {
     payload: "placeholder",
     signature: "placeholder",
   },
-  frame: {
+  miniapp: {
     version: "1",
     name: "Predict",
     iconUrl: `${IMG}/predict-banner.png`,
@@ -382,6 +344,7 @@ app.use("*", async (c, next) => {
   _db = c.env.DB;
   await next();
   c.res.headers.set("X-Content-Type-Options", "nosniff");
+  // Do NOT set X-Frame-Options or restrictive CSP — Mini Apps load in iframes
 });
 
 // Mini App manifest
