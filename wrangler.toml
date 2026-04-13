@@ -1,0 +1,14 @@
+name = "jumpbox-predict"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "37779f1a1593f028bc1776b406ce4362"
+
+routes = [
+  { pattern = "predict.jumpbox.tech", custom_domain = true }
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "predict-db"
+database_id = "bb826ecf-0247-45dc-a21f-ed76258a12f1"

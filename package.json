@@ -1,0 +1,18 @@
+{
+  "name": "jumpbox-predict",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@farcaster/snap": "latest",
+    "@farcaster/snap-hono": "latest",
+    "@farcaster/jfs": "latest",
+    "hono": "^4"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}
