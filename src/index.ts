@@ -247,7 +247,21 @@ function miniAppHtml(marketId: string, choice: string, market: Market | null) {
         status.textContent = "Connecting wallet...";
         status.className = "status";
 
-        const provider = sdk.wallet.getEthereumProvider();
+        let provider = null;
+        try { provider = await sdk.wallet.getEthereumProvider(); } catch(e1) {
+          try { provider = sdk.wallet.getEthereumProvider(); } catch(e2) {
+            provider = window.ethereum;
+          }
+        }
+        if (!provider || typeof provider.request !== "function") {
+          if (provider && typeof provider === "object") {
+            // Might be a Comlink proxy — try wrapping
+            const p = provider;
+            provider = { request: async (args) => await p.request(args) };
+          } else {
+            throw new Error("No wallet provider available");
+          }
+        }
         const accounts = await provider.request({ method: "eth_requestAccounts" });
         const account = accounts[0];
         if (!account) throw new Error("No account connected");
@@ -323,6 +337,7 @@ app.use("*", async (c, next) => {
   _db = c.env.DB;
   await next();
   c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
   // Do NOT set X-Frame-Options or restrictive CSP — Mini Apps load in iframes
 });
 
